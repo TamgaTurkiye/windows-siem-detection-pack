@@ -1,0 +1,51 @@
+# Internal SOC Detection Pack — Algılama 5B — Servis Kurulumu (System Log)
+title: Yeni Servis Kurulumu — System Log (7045)
+name: internal_new_service_system
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567809  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Windows System logunda Service Control Manager tarafından kaydedilen
+  yeni servis kurulumunu (7045) tespit eder. Çoğu Windows ortamında
+  System log içinde görülebilir; merkezi toplama ve SIEM ingestion durumu
+  mutlaka doğrulanmalıdır.
+references:
+  - https://attack.mitre.org/techniques/T1543/003/
+  # 7045 için resmi Microsoft Security Auditing dokümantasyonu sınırlıdır;
+  # System Event Log SCM (Service Control Manager) kapsamındadır.
+  # Kaynak doğrulaması gerekebilir.
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.persistence
+  - attack.privilege_escalation
+  - attack.t1543.003
+logsource:
+  product: windows
+  service: system
+detection:
+  selection:
+    EventID: 7045
+  filter_trusted_paths:
+    ImagePath|startswith:
+      - 'C:\Program Files\'
+      - 'C:\Program Files (x86)\'
+      - 'C:\Windows\System32\'
+      - 'C:\Windows\SysWOW64\'
+  # filter_trusted_services:
+  #   ServiceName:
+  #     - 'wuauserv'          # Windows Update
+  #     - 'WinDefend'         # Windows Defender
+  #     # Ortama özgü bilinen servisler
+  condition: selection and not filter_trusted_paths
+falsepositives:
+  - Yazılım kurulumları ve güncellemeleri
+  - Yama yönetimi araçları
+  - Güvenlik aracı güncellemeleri
+  - Sürücü yüklemeleri
+level: medium
+# NOT: 7045'te servis dosya yolu 'ImagePath' olarak adlandırılır;
+# 4697'deki 'ServiceFileName'den farklıdır.
+# Bazı SIEM'ler 7045'i 4697'den daha iyi ayrıştırır.
+# Her iki kaynağı birlikte kullanmanız önerilir.
+# 7045 çoğu ortamda System log içinde görülebilir; ancak merkezi toplama,
+# agent parsing ve SIEM ingestion doğrulanmalıdır. 4697 audit policy gerektirir.

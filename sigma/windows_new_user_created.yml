@@ -1,0 +1,44 @@
+# Internal SOC Detection Pack — Algılama 2 — Yeni Hesap Oluşturma
+title: Yeni Windows Kullanıcı Hesabı Oluşturulması
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567804  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Windows ortamında yeni bir kullanıcı hesabı oluşturulduğunu tespit eder.
+  Provisioning araçları ve yetkili yöneticiler istisna listesiyle filtrelenmelidir.
+references:
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4720
+  - https://attack.mitre.org/techniques/T1136/
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.persistence
+  - attack.t1136.001
+  - attack.t1136.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4720
+  # === İstisna Listesi — Ortama Göre Düzenleyin ===
+  # filter_provisioning:
+  #   SubjectUserName:
+  #     - 'svc_provisioning'      # Ortama özgü — doğrulayın
+  #     - 'svc_azuread_connect'   # Ortama özgü — doğrulayın
+  #     - 'SYSTEM'                # Bazı otomasyon araçları SYSTEM olarak çalışır
+  # filter_known_admins:
+  #   SubjectUserName:
+  #     - 'admin_john.doe'        # Ortama özgü — doğrulayın
+  condition: selection
+  # Filtrelerle: selection and not filter_provisioning and not filter_known_admins
+falsepositives:
+  - BT yöneticilerinin rutin hesap oluşturma işlemleri
+  - Otomatik provisioning araçları (SCCM, Azure AD Connect, Intune)
+  - HR onboarding süreçleri ve IAM sistemleri
+  - Test ortamı hesapları
+level: medium
+# NOT: SubjectUserName ve TargetUserName alan adları SIEM'e göre
+# farklı eşlenebilir. Microsoft dokümantasyonuna göre doğrulayın.
+# SamAccountName alanı da bazı SIEM'lerde mevcuttur.
+# Domain Controller vs iş istasyonu ayrımı için ComputerName alanı
+# kullanılabilir.

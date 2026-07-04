@@ -1,0 +1,72 @@
+# Internal SOC Detection Pack — Algılama 3 — Ayrıcalıklı Gruba Ekleme
+title: Güvenlik Etkin Ayrıcalıklı Gruba Kullanıcı Eklenmesi
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567805  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Bir kullanıcının güvenlik etkin yerel (4732), global (4728) veya evrensel
+  (4756) bir ayrıcalıklı gruba eklenmesini tespit eder. Yetki yükseltme
+  girişimlerine işaret edebilir.
+references:
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4732
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4728
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4756
+  - https://attack.mitre.org/techniques/T1098/
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.persistence
+  - attack.privilege_escalation
+  - attack.t1098
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_event:
+    EventID:
+      - 4732
+      - 4728
+      - 4756
+  # --- Seçenek A: Grup Adı Tabanlı Eşleşme ---
+  # ⚠️ Yerelleştirilmiş Windows'ta farklı olabilir!
+  filter_privileged_groups_by_name:
+    TargetUserName:
+      - 'Administrators'
+      - 'Domain Admins'
+      - 'Enterprise Admins'
+      - 'Schema Admins'
+      - 'Account Operators'
+      - 'Backup Operators'
+      - 'Server Operators'
+      # Türkçe Windows için (doğrulama gerekir):
+      # - 'Yöneticiler'
+      # - 'Etki Alanı Yöneticileri'
+      # Kurum özel grupları eklenebilir
+  # --- Seçenek B: SID/RID Tabanlı Eşleşme (Tercih Edilen, ancak platforma bağlı) ---
+  # ⚠️ Bu blok production-ready kopyala-yapıştır değildir.
+  # SIEM'inizde TargetSid/GroupSid alanının varlığı, SID normalization,
+  # startswith/endswith operatör desteği ve grup inventory eşleşmesi doğrulanmalıdır.
+  # filter_privileged_groups_by_sid:
+  #   TargetSid|startswith:
+  #     - 'S-1-5-32-544'   # Builtin Administrators
+  #     - 'S-1-5-32-548'   # Account Operators
+  #     - 'S-1-5-32-549'   # Server Operators
+  #     - 'S-1-5-32-551'   # Backup Operators
+  #   TargetSid|endswith:
+  #     - '-512'            # Domain Admins
+  #     - '-518'            # Schema Admins
+  #     - '-519'            # Enterprise Admins
+  #   # NOT: SID endswith eşleşmesi Sigma'da
+  #   # tüm modifiye edilebilir değildir — SIEM'e göre doğrulayın.
+  condition: selection_event and filter_privileged_groups_by_name
+  # SID tabanlı: selection_event and filter_privileged_groups_by_sid
+falsepositives:
+  - Planlı yönetici atama süreçleri
+  - Değişiklik yönetimi dahilinde yapılan grup değişiklikleri
+  - Otomasyon araçlarının geçici yetki yükseltmeleri
+  - Test ortamı işlemleri
+level: high
+# NOT: TargetUserName alanı bu olayda GRUP ADINI taşır, kullanıcı adını değil.
+# Eklenen kullanıcı MemberName veya MemberSid alanında bulunur.
+# Bu alan eşlemesi SIEM'e göre farklıdır — mutlaka doğrulayın.
+# Grup adı yerine SID tabanlı eşleşme daha güvenilirdir ancak
+# tüm SIEM'ler SID alanlarını aynı şekilde işlemez.

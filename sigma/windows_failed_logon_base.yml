@@ -1,0 +1,29 @@
+# Internal SOC Detection Pack — Algılama 1 — Temel Kural
+# Enterprise-ready candidate — yerel doğrulama gerektirir
+title: Windows Başarısız Oturum Açma Olayı
+name: internal_failed_logon
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567801  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Windows 4625 başarısız oturum açma olaylarını seçer. Tek başına uyarı
+  üretmez; korelasyon kuralları tarafından referans alınır.
+references:
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4625
+author: Internal Detection Engineering
+date: 2026/07/04
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4625
+  # Makine hesaplarını ($) hariç tut — yanlış pozitif azaltır
+  filter_machine_accounts:
+    TargetUserName|endswith: '$'
+  # Anonim oturum açma denemelerini hariç tut
+  filter_anonymous:
+    TargetUserName: 'ANONYMOUS LOGON'
+  condition: selection and not filter_machine_accounts and not filter_anonymous
+# NOT: SubjectUserName|endswith: '$' filtresi de değerlendirilebilir.
+# SIEM'inizdeki alan adlarını doğrulayın.
+# SourceNetworkAddress veya IpAddress alanı SIEM'e göre farklı olabilir.

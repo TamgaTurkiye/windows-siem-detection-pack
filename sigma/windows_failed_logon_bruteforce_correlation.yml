@@ -1,0 +1,37 @@
+# Internal SOC Detection Pack — Algılama 1B — Korelasyon: Kaba Kuvvet
+title: Aynı Hesaba Kısa Sürede Çoklu Başarısız Giriş (Kaba Kuvvet Sinyali)
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567802  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Aynı kullanıcı hesabına kısa sürede çok sayıda başarısız giriş denemesi
+  yapılmasını tespit eder. Kaba kuvvet saldırısına işaret edebilir.
+  Eşik değeri ortam baseline'ına göre ayarlanmalıdır.
+references:
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4625
+  - https://attack.mitre.org/techniques/T1110/001/
+  - https://sigmahq.io/docs/meta/correlations.html
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+correlation:
+  type: event_count
+  rules:
+    - internal_failed_logon
+  group-by:
+    - TargetUserName
+    - TargetDomainName
+  timespan: 5m
+  condition:
+    gte: 10  # ⚠️ Örnek eşik — ortam baseline'ına göre ayarlayın
+falsepositives:
+  - Parolası değişmiş servis hesapları
+  - Önbelleğe alınmış eski kimlik bilgileri ile bağlanan istemciler
+  - Parola sıfırlama sürecindeki kullanıcılar
+  - Yanlış yapılandırılmış uygulamalar
+level: medium
+# NOT: 'timespan' ve eşik değeri ortama özgüdür.
+# Yüksek değerli hesaplar (Domain Admin vb.) için daha düşük eşik düşünülebilir.
+# 4624 ile korelasyon (başarılı giriş sonrası) ayrı bir temporal kural olarak
+# oluşturulabilir — bkz. aşağıdaki not.

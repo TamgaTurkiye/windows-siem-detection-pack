@@ -1,0 +1,80 @@
+# Internal SOC Detection Pack — Algılama 4B — PowerShell Katman 3 (Kavramsal)
+# ⚠️ Bu kural kavramsal bir korelasyon taslağıdır.
+# Tam uygulama EDR / Sysmon entegrasyonu gerektirir.
+title: PowerShell Şüpheli Gösterge + Olağandışı Bağlam (Katman 3)
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567807  # Üretimde gerçek UUID ile değiştirin
+status: experimental
+description: >
+  Katman 1 PowerShell göstergelerinin olağandışı bağlam faktörleriyle
+  birlikte gözlenmesi durumunda uyarı üretir. Bu kavramsal bir tasarımdır;
+  tam uygulama SIEM korelasyon yeteneklerine ve EDR/Sysmon entegrasyonuna
+  bağlıdır.
+references:
+  - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://sigmahq.io/docs/meta/correlations.html
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.execution
+  - attack.t1059.001
+# --- Kavramsal Korelasyon Mantığı ---
+# Bu korelasyon Sigma'nın temporal tipi ile kurulabilir,
+# ancak farklı log kaynaklarını (ps_script + sysmon/process_creation)
+# birleştirdiği için SIEM'e özgü uygulama gerektirir.
+#
+# Yaklaşım 1 — Script Block + Kullanıcı-yazılabilir yol:
+# Katman 1 kuralı tetiklendi VE Path alanı şüpheli bir dizin içeriyor
+# (%TEMP%, %APPDATA%, Downloads, Public vb.)
+#
+# Yaklaşım 2 — Script Block + Olağandışı kullanıcı:
+# Katman 1 kuralı tetiklendi VE çalıştıran kullanıcı bilinen PS
+# kullanıcıları listesinde değil
+#
+# Yaklaşım 3 — Script Block + Ağ bağlantısı (temporal):
+# Katman 1 kuralı tetiklendi VE aynı host'ta kısa sürede
+# dış ağ bağlantısı gözlendi (Sysmon Event 3 veya EDR)
+#
+# Aşağıdaki örnek Yaklaşım 1'in basitleştirilmiş halidir.
+logsource:
+  product: windows
+  category: ps_script
+detection:
+  # Katman 1 göstergelerinden herhangi biri
+  selection_encoded:
+    ScriptBlockText|contains:
+      - '-EncodedCommand'
+      - '-enc '
+  selection_download:
+    ScriptBlockText|contains:
+      - '.DownloadString('
+      - '.DownloadFile('
+      - 'Invoke-WebRequest '
+  # Şüpheli yoldan çalıştırma (bağlam)
+  selection_suspicious_path:
+    Path|contains:
+      - '\AppData\'
+      - '\Temp\'
+      - '\Downloads\'
+      - '\Public\'
+      - '\ProgramData\'
+      # NOT: Bu yollar ortama göre ayarlanmalıdır.
+  # Bilinen meşru yolları hariç tut
+  filter_known:
+    Path|contains:
+      - 'C:\Program Files\'
+      - 'C:\Program Files (x86)\'
+      - 'C:\Windows\System32\'
+  condition: >
+    (selection_encoded or selection_download)
+    and selection_suspicious_path
+    and not filter_known
+falsepositives:
+  - Geçici dizinden çalışan meşru yükleyiciler
+  - AppData altında çalışan meşru uygulamalar (VS Code, Teams vb.)
+level: medium
+# NOT: Bu kural kavramsal bir Katman 3 başlangıcıdır.
+# Tam Katman 3 korelasyonu için EDR/Sysmon process creation
+# verileriyle temporal korelasyon gerekir.
+# SIEM'inizin farklı log kaynaklarını korelasyon yeteneğini doğrulayın.
+# Script Block Logging etkinleştirilmiş olmalıdır.

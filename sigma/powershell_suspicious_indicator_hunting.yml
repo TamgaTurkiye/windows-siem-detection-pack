@@ -1,0 +1,80 @@
+# Internal SOC Detection Pack — Algılama 4A — PowerShell Katman 1
+# ⚠️ Bu kural tek başına uyarı üretmek için UYGUN DEĞİLDİR.
+# Hunting sorgusu veya korelasyon girişi olarak kullanılmalıdır.
+title: PowerShell Şüpheli Gösterge — Katman 1 (Hunting)
+name: internal_ps_suspicious_indicator
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567806  # Üretimde gerçek UUID ile değiştirin
+status: experimental
+description: >
+  PowerShell Script Block Logging'de şüpheli desenleri tespit eder.
+  Tek başına uyarı üretmek için tasarlanmamıştır; katmanlı algılama
+  modelinin Katman 1 girişidir. Yüksek yanlış pozitif oranı beklenir.
+references:
+  - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://learn.microsoft.com/en-us/powershell/scripting/windows-powershell/wmf/whats-new/script-logging
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  product: windows
+  category: ps_script
+  # NOT: 'category: ps_script' SigmaHQ standardına göre
+  # PowerShell Script Block Logging'e (Event ID 4104) eşlenir.
+  # SIEM'inizdeki eşlemeyi doğrulayın.
+detection:
+  selection_encoded:
+    ScriptBlockText|contains:
+      - '-EncodedCommand'
+      - '-enc '
+      # NOT: '-e ' çok kısa; yanlış pozitif oranı yüksek olabilir.
+      # Ortamınızda test edin.
+  selection_bypass:
+    ScriptBlockText|contains:
+      - '-ExecutionPolicy Bypass'
+      - '-ExecutionPolicy Unrestricted'
+      - '-ep bypass'
+  selection_download:
+    ScriptBlockText|contains:
+      - '.DownloadString('
+      - '.DownloadFile('
+      - 'Invoke-WebRequest '
+      - 'Invoke-RestMethod '
+      - 'Start-BitsTransfer '
+      # NOT: 'iwr', 'wget', 'curl' takma adları çok geniştir;
+      # tam cmdlet adları tercih edilmiştir.
+  selection_obfuscation:
+    ScriptBlockText|contains:
+      - '[char]'
+      - 'join('
+      - '-replace'
+      - '-split'
+      - '[Convert]::'
+      - 'FromBase64String'
+    # ⚠️ Bu göstergeler çok geniştir; tek başına kullanılmamalı,
+    # diğer göstergelerle korelasyon gerektirir.
+  # === Meşru Otomasyon İstisnaları ===
+  filter_known_scripts:
+    # Ortama özgü — bilinen meşru betiklerin yolları veya hash'leri
+    Path|contains:
+      - 'C:\Program Files\Microsoft Monitoring Agent'
+      - 'C:\Program Files\Microsoft Configuration Manager'
+      # Ek meşru yollar ortama göre eklenmelidir
+  # İmza / reputation filtresi burada bilerek uygulanmaz.
+  # ScriptBlockText içinde imza bloğu görmek imzanın geçerli olduğunu kanıtlamaz.
+  # Güvenilirlik kontrolü gerekiyorsa EDR, code-signing metadata, file hash
+  # reputation veya software inventory zenginleştirmesi ile yapılmalıdır.
+  condition: >
+    (selection_encoded or selection_bypass or selection_download or selection_obfuscation)
+    and not filter_known_scripts
+falsepositives:
+  - Sistem yöneticilerinin meşru otomasyon betikleri
+  - SCCM, Intune, DSC dağıtım betikleri
+  - Güvenlik tarama araçları
+  - İmzalı veya bilinen güvenilir modüller; yalnızca EDR/file metadata ile doğrulanırsa
+  - Kodlanmış parametre kullanan meşru yazılımlar
+level: low
+# ⚠️ BU KURAL TEK BAŞINA UYARI ÜRETMEMELİDİR.
+# Hunting sorgusu veya Katman 3 korelasyonunun girişi olarak kullanın.

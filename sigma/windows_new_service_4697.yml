@@ -1,0 +1,51 @@
+# Internal SOC Detection Pack — Algılama 5A — Servis Kurulumu (Security Log)
+title: Yeni Servis Kurulumu — Security Log (4697)
+name: internal_new_service_security
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567808  # Üretimde gerçek UUID ile değiştirin
+status: test
+description: >
+  Windows Security logunda yeni servis kurulumunu (4697) tespit eder.
+  Audit Security System Extension politikasının etkinleştirilmesi gerekir.
+references:
+  - https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4697
+  - https://attack.mitre.org/techniques/T1543/003/
+author: Internal Detection Engineering
+date: 2026/07/04
+tags:
+  - attack.persistence
+  - attack.privilege_escalation
+  - attack.t1543.003
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4697
+  # === Bilinen Yazılım Dağıtım Yollarını Hariç Tut ===
+  filter_trusted_paths:
+    ServiceFileName|startswith:
+      - 'C:\Program Files\'
+      - 'C:\Program Files (x86)\'
+      - 'C:\Windows\System32\'
+      - 'C:\Windows\SysWOW64\'
+      # Ortama özgü güvenilir yollar eklenebilir
+  # filter_trusted_accounts:
+  #   SubjectUserName:
+  #     - 'SYSTEM'
+  #     - 'svc_sccm'            # Ortama özgü
+  #     - 'svc_intune'          # Ortama özgü
+  condition: selection and not filter_trusted_paths
+  # Filtrelerle: selection and not filter_trusted_paths and not filter_trusted_accounts
+falsepositives:
+  - Yazılım kurulumları ve güncellemeleri
+  - Yama yönetimi araçları
+  - Güvenlik aracı güncellemeleri
+  - Sürücü yüklemeleri
+  - İzleme aracı kurulumları
+level: medium
+# NOT: Bu kural yalnızca güvenilir yollar DIŞINDAN kurulan servisleri
+# raporlar. Güvenilir yol listesi ortama özgüdür ve düzenli
+# güncellenmelidir.
+# ServiceFileName alan adı SIEM'e göre farklı olabilir
+# (ImagePath, BinaryPathName, service.executable vb.) — doğrulama gerekir.
+# Audit Security System Extension politikası etkinleştirilmiş olmalıdır.
